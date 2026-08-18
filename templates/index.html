@@ -1,0 +1,1442 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metropolitan Environmental Digital Twin Canvas</title>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <style>
+        
+        html, body, * {
+            scroll-behavior: smooth;
+        }
+
+        
+        ::-webkit-scrollbar {
+            width: 5px;             
+            height: 5px;            /
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(11, 15, 25, 0.4);  
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(6, 182, 212, 0.35); 
+            border-radius: 10px;
+            transition: background 0.3s ease;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(6, 182, 212, 0.7);  
+        }
+
+        
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(6, 182, 212, 0.35) rgba(11, 15, 25, 0.4);
+        }
+
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: #0b0f19; 
+            color: #ffffff;            
+            overflow-x: hidden;
+            overflow-y: auto; 
+            position: relative;
+        }
+
+        body::before, body::after {
+            content: "";
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(90px);
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0.15;
+        }
+        body::before {
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, #06b6d4 0%, #3b82f6 100%);
+            top: -10%;
+            left: 10%;
+        }
+        body::after {
+            width: 350px;
+            height: 350px;
+            background: radial-gradient(circle, #a855f7 0%, #6366f1 100%);
+            bottom: 5%;
+            right: 15%;
+        }
+
+    
+        .toast-notification {
+            position: fixed;
+            top: 25px;
+            right: 25px;
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid #06b6d4;
+            color: #ffffff;
+            padding: 12px 20px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(6, 182, 212, 0.3);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            z-index: 9999;
+            font-size: 13px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: all 0.3s ease-in-out;
+            pointer-events: none;
+            max-width: 420px;
+        }
+
+        .toast-notification.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+       
+        .dashboard-header {
+            width: 100%;
+            text-align: center;
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            padding: 18px 0;
+            background: rgba(21, 29, 48, 0.45);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            color: #ffffff;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            z-index: 10;
+        }
+
+        
+        .dashboard-container {
+            width: 100%;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px; 
+            z-index: 1;
+        }
+
+       
+        .panel-row {
+            display: flex;
+            width: 100%;
+            gap: 24px;     
+            align-items: flex-start;
+        }
+
+     
+        .glass-panel {
+            height: 280px; 
+            background: rgba(21, 29, 48, 0.35); 
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px; 
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+            padding: 20px; 
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .left-panel { 
+            flex: 1;      
+            gap: 6px; 
+            position: relative; 
+        }
+        
+        .right-panel { 
+            flex: 1;      
+            gap: 10px; 
+            overflow-y: auto; 
+        }
+
+        .twin-workspace-split {
+            display: none; 
+            width: 100%;
+            gap: 24px;
+            align-items: stretch; 
+            height: 620px; 
+        }
+
+        .workspace-left-map {
+            width: 30%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .workspace-right-data {
+            width: 70%;
+            display: flex;
+            flex-direction: column;
+        }
+
+       
+        .map-panel {
+            width: 100%;
+            height: 100%; 
+            background: rgba(21, 29, 48, 0.35);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        
+        .main-data-container {
+            width: 100%;
+            height: 100%;
+            background: rgba(21, 29, 48, 0.35);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+    
+        .data-sections-tabs {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding-bottom: 12px;
+            flex-shrink: 0;
+        }
+
+        .section-tab-btn {
+            flex: 1;
+            padding: 10px 14px;
+            background: rgba(6, 182, 212, 0.12);
+            border: 1px solid rgba(6, 182, 212, 0.35);
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s ease;
+            letter-spacing: 0.5px;
+        }
+
+        .section-tab-btn:hover {
+            background: rgba(6, 182, 212, 0.22);
+            border-color: #06b6d4;
+        }
+
+        .section-tab-btn.active-section-tab {
+            background: rgba(6, 182, 212, 0.3);
+            border-color: #06b6d4;
+            color: #06b6d4;
+            box-shadow: 0 0 10px rgba(6, 182, 212, 0.2);
+        }
+
+    
+        .section-view-panel {
+            display: none;
+            flex-direction: column;
+            width: 100%;
+            flex: 1;
+            overflow-y: auto;
+            gap: 20px;
+            padding-right: 4px;
+        }
+
+        .section-view-panel.active-panel-view {
+            display: flex;
+        }
+
+        .graph-block-row {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 15px;
+            flex-shrink: 0;
+        }
+
+    
+        .content-block-row {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 15px;
+            flex-shrink: 0;
+        }
+
+        .panel-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #ffffff;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .search-wrapper {
+            position: relative;
+            width: 100%;
+        }
+
+        .search-action-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            width: 100%;
+        }
+
+        .input-group {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 2px 12px;
+        }
+
+        .location-input {
+            flex: 1;
+            padding: 8px 0;
+            font-size: 13px;
+            border: none;
+            background: transparent;
+            color: #ffffff;            
+            outline: none;
+        }
+
+        .location-input::placeholder { color: rgba(255, 255, 255, 0.3); }
+
+        .suggestions-list {
+            position: absolute;
+            top: 42px;
+            left: 0;
+            width: 100%;
+            background: #151d30;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            z-index: 999;
+            max-height: 180px;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            display: none;
+        }
+
+        .suggestion-item {
+            padding: 10px 14px;
+            font-size: 12.5px;
+            color: rgba(255, 255, 255, 0.8);
+            cursor: pointer;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .suggestion-item:last-child { border-bottom: none; }
+        .suggestion-item:hover {
+            background: rgba(6, 182, 212, 0.15);
+            color: #06b6d4;
+        }
+
+        .search-hint {
+            font-size: 11px;
+            color: #ef4444; 
+            margin-top: -3px;
+            padding-left: 2px;
+            min-height: 14px;
+        } 
+
+        .added-places-container {
+            display: flex;
+            flex-direction: row; 
+            flex-wrap: wrap;     
+            align-items: flex-start; 
+            flex: 1;          
+            overflow-y: auto; 
+            max-height: 85px; 
+            gap: 8px;            
+            padding-top: 5px;
+        }
+
+        .place-item {
+            padding: 5px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.7);
+            border-radius: 20px; 
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            width: max-content;
+            max-width: 220px;
+            cursor: default;
+            transition: all 0.2s ease;
+        }
+
+        .map-panel .place-item {
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .map-panel .place-item:hover {
+            background: rgba(6, 182, 212, 0.15);
+            border-color: rgba(6, 182, 212, 0.4);
+            color: #fff;
+        }
+        .map-panel .place-item.active-tag {
+            background: rgba(6, 182, 212, 0.25);
+            border-color: #06b6d4;
+            color: #fff;
+            box-shadow: 0 0 8px rgba(6, 182, 212, 0.3);
+        }
+
+        .place-item span {
+            text-overflow: ellipsis;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        .place-item-close {
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.4);
+        }
+        .place-item-close:hover { color: #ef4444 !important; }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+            margin-top: auto; 
+        }
+
+        .btn {
+            flex: 1;
+            padding: 9px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #fff;
+            transition: all 0.2s ease;
+        }
+        .btn-submit { background: rgba(6, 182, 212, 0.2); border-color: rgba(6, 182, 212, 0.4); color: #06b6d4; }
+        .btn-submit:hover { background: rgba(6, 182, 212, 0.35); color: #fff; }
+        .btn-clear { background: transparent; border-color: rgba(255,255,255,0.05); color: rgba(255,255,255,0.4); }
+        .btn-clear:hover { color: #ffffff; }
+
+        .status-dot {
+            height: 6px;
+            width: 6px;
+            background-color: #06b6d4;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+
+        .info-section {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            text-align: left;
+        }
+
+        .info-section:last-child { border-bottom: none; }
+        .info-section h3 { font-size: 13px; font-weight: 600; color: #ffffff; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+        .info-content { font-size: 12px; font-weight: 400; color: rgba(255,255,255,0.7); line-height: 1.6; margin-left: 15px; }
+
+        .maps-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+            width: 100%;
+            margin-top: 15px;
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .individual-map-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            cursor: pointer;
+        }
+
+        .individual-map-card.active-card {
+            border-color: #06b6d4;
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.15);
+        }
+
+        .map-card-header {
+            font-size: 13px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.9);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .map-canvas-wrapper {
+            width: 100%;
+            height: 340px; 
+            border-radius: 8px;
+            background: #ffffff; 
+            overflow: hidden;
+        }
+
+        .selected-location {
+            margin-bottom: 12px;
+            padding: 8px 12px;
+            background: rgba(6, 182, 212, 0.12);
+            border: 1px solid rgba(6, 182, 212, 0.35);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 500;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .selected-location span { color: #06b6d4; font-weight: 700; }
+
+        .toggle-data-btn {
+            background: rgba(6, 182, 212, 0.2);
+            border: 1px solid rgba(6, 182, 212, 0.5);
+            color: #06b6d4;
+            font-size: 11px;
+            padding: 3px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .toggle-data-btn.active-toggle {
+            background: rgba(168, 85, 247, 0.2);
+            border-color: rgba(168, 85, 247, 0.5);
+            color: #c084fc;
+        }
+
+        .map-places-container {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            flex-shrink: 0;
+        }
+
+    
+        .bullet-title {
+            font-size: 12.5px;
+            font-weight: 600;
+            color: #06b6d4;
+            margin-top: 14px;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .bullet-title::before {
+            content: "•";
+            color: #06b6d4;
+            font-size: 16px;
+        }
+        .content-block-desc {
+            font-size: 11.5px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-left: 12px;
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+        .content-grid-cards {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-left: 12px;
+            margin-top: 8px;
+        }
+        .content-mini-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 6px;
+            padding: 8px 12px;
+        }
+        .mini-card-label {
+            font-size: 9px;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.4);
+            margin-bottom: 3px;
+            letter-spacing: 0.5px;
+        }
+        .mini-card-value {
+            font-size: 12px;
+            font-weight: 600;
+            color: #06b6d4;
+        }
+        .aqi-large-display {
+            font-size: 18px;
+            font-weight: 700;
+            color: #10b981;
+            margin-left: 12px;
+            margin-top: 4px;
+            margin-bottom: 12px;
+        }
+        .timeline-split-pane {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            height: auto;
+        }
+        .timeline-column {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .timeline-col-header {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            padding: 4px 6px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .timeline-item-row {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 11px;
+            line-height: 1.4;
+        }
+        .timeline-date-lbl {
+            font-weight: 600;
+            color: #a855f7;
+            margin-bottom: 2px;
+        }
+        .timeline-column:last-child .timeline-date-lbl {
+            color: #eab308;
+        }
+        
+     
+        .svg-chart-container {
+            width: 100%;
+            height: 220px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+        .svg-grid-layout-2x2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: repeat(2, 130px);
+            gap: 12px;
+            width: 100%;
+            height: auto;
+        }
+        .svg-grid-layout-3x2 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            width: 100%;
+            height: auto;
+        }
+
+        @media (max-width: 1024px) {
+            .panel-row { flex-direction: column; gap: 20px; }
+            .twin-workspace-split { flex-direction: column; gap: 20px; height: auto; }
+            .workspace-left-map, .workspace-right-data { width: 100%; }
+            .map-panel { height: 500px; }
+            .main-data-container { height: 600px; }
+            .data-sections-tabs { flex-wrap: wrap; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="toastNotification" class="toast-notification">
+        <span style="font-size:16px;">📍</span>
+        <span id="toastText">Alert Message</span>
+    </div>
+
+    <header class="dashboard-header">
+        METROPOLITAN ENVIRONMENTAL DIGITAL TWIN CANVAS
+    </header>
+
+    <main class="dashboard-container">
+        
+      
+        <div class="panel-row">
+            <section class="glass-panel left-panel">
+                <h2 class="panel-label">Telemetry Station Filters</h2>
+                
+                <div class="search-wrapper">
+                    <div class="search-action-row">
+                        <div class="input-group">
+                            <input type="text" id="searchInput" class="location-input" placeholder="Type to search locations in India (e.g. Kolkata)..." autocomplete="off">
+                        </div>
+                    </div>
+                    <div id="suggestionsBox" class="suggestions-list"></div>
+                </div>
+                
+                <div id="searchHint" class="search-hint"></div>
+                <div class="added-places-container" id="placesList"></div>
+
+                <div class="action-buttons">
+                    <button id="submitBtn" class="btn btn-submit">Sync Matrix Feeds</button>
+                    <button id="clearBtn" class="btn btn-clear">Reset Dashboard</button>
+                </div>
+            </section>
+
+            <section class="glass-panel right-panel">
+                <div class="info-section">
+                    <h3><span class="status-dot"></span>System Concept Architecture</h3>
+                    <p class="info-content">
+                        This digital twin canvas processes micro-climate data fields from interconnected virtual tracking networks to create predictive environmental layers across urban nodes.
+                    </p>
+                </div>
+
+                <div class="info-section">
+                    <h3><span class="status-dot"></span>Functional Processing</h3>
+                    <p class="info-content">
+                        Search multiple locations to buffer them. Once you click "Sync Matrix Feeds", your environmental dashboard and maps will dynamically populate and focus on your target monitoring zone.
+                    </p>
+                </div>
+            </section>
+        </div>
+
+        <div class="twin-workspace-split" id="mainWorkspaceSplit">
+            
+    
+            <div class="workspace-left-map">
+                <div class="map-panel" id="mapPanelBox">
+                    <h2 class="panel-label" style="margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.08);">Real-Time Mapping Network Layer</h2>
+                    
+                    <div class="map-places-container" id="mapPlacesList"></div>
+
+                    <div id="selectedLocationText" class="selected-location">
+                        <div>Selected : <span id="currentLocationName">None</span></div>
+                        <button id="toggleDataBtn" class="toggle-data-btn">Expand Data Fields</button>
+                    </div>
+                    
+                    <div id="mapsGrid" class="maps-grid"></div>
+                </div>
+            </div>
+
+           
+            <div class="workspace-right-data">
+                <div class="main-data-container" id="unified-data-box" style="display: none;">
+                    
+   
+                    <div class="data-sections-tabs">
+                        <button class="section-tab-btn" id="sec-tab-metrology" onclick="switchDataSection('metrology')">Atmosphere Metrology</button>
+                        <button class="section-tab-btn" id="sec-tab-speciation" onclick="switchDataSection('speciation')">Air Particulate and Gas Speciation</button>
+                        <button class="section-tab-btn" id="sec-tab-timeline" onclick="switchDataSection('timeline')">Chronological Analysis – Prime Lines</button>
+                    </div>
+
+                
+                    <div class="section-view-panel" id="panel-sec-metrology">
+                   
+                        
+                        <div class="graph-block-row">
+                            <h3 class="panel-label" style="margin-bottom: 12px; color: #06b6d4;">Metrological Visual Charts</h3>
+                            <div class="svg-grid-layout-2x2" id="graph-container-metrology"></div>
+                        </div>
+                        
+                        <div class="content-block-row" id="content-container-metrology"></div>
+                    </div>
+
+                  
+                    <div class="section-view-panel" id="panel-sec-speciation">
+                      
+                        <div class="graph-block-row">
+                            <h3 class="panel-label" style="margin-bottom: 12px; color: #06b6d4;">Particulate & Pollutants Charts</h3>
+                            <div class="svg-grid-layout-3x2" id="graph-container-speciation"></div>
+                        </div>
+                       
+                        <div class="content-block-row" id="content-container-speciation"></div>
+                    </div>
+
+                    
+                    <div class="section-view-panel" id="panel-sec-timeline">
+                 
+                        <div class="graph-block-row">
+                            <h3 class="panel-label" style="margin-bottom: 12px; color: #06b6d4;">Analytics & Timeline Projections</h3>
+                            <div class="svg-chart-container" id="graph-container-timeline"></div>
+                        </div>
+                  
+                        <div class="content-block-row" id="content-container-timeline"></div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+    <script>
+        
+        let MAP_API_KEY = '';
+
+        async function loadBackendConfig() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+                MAP_API_KEY = config.mapApiKey;
+            } catch (err) {
+                console.error("Failed to fetch application configurations from backend ecosystem.", err);
+            }
+        }
+        loadBackendConfig();
+
+        const searchInput = document.getElementById('searchInput');
+        const searchHint = document.getElementById('searchHint');
+        const suggestionsBox = document.getElementById('suggestionsBox');
+        const placesList = document.getElementById('placesList');
+        const mapPlacesList = document.getElementById('mapPlacesList');
+        const mapsGrid = document.getElementById('mapsGrid');
+        const submitBtn = document.getElementById('submitBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const toggleDataBtn = document.getElementById('toggleDataBtn');
+        const mainWorkspaceSplit = document.getElementById('mainWorkspaceSplit');
+
+        let debounceTimer;
+        let storedLocationsMap = new Map(); 
+        let activeMaps = new Map(); 
+        let isDashboardActive = false;
+        let areDataPanelsExpanded = false;
+        let selectedLocationName = "None";
+        let activeSectionId = null; 
+        let toastTimeout = null;
+
+     
+        function showLocationToast(message) {
+            const toast = document.getElementById('toastNotification');
+            const toastText = document.getElementById('toastText');
+            toastText.textContent = message;
+            
+            toast.classList.add('show');
+            if (toastTimeout) clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3500);
+        }
+
+        
+        window.switchDataSection = function(sectionId) {
+            if (activeSectionId === sectionId) {
+                return;
+            }
+            
+            activeSectionId = sectionId;
+
+            document.querySelectorAll('.section-tab-btn').forEach(btn => btn.classList.remove('active-section-tab'));
+            document.querySelectorAll('.section-view-panel').forEach(panel => panel.classList.remove('active-panel-view'));
+
+            const targetTab = document.getElementById(`sec-tab-${sectionId}`);
+            const targetPanel = document.getElementById(`panel-sec-${sectionId}`);
+            
+            if (targetTab) targetTab.classList.add('active-section-tab');
+            if (targetPanel) targetPanel.classList.add('active-panel-view');
+
+            if (selectedLocationName !== "None") {
+                renderAllDashboardsAndCharts();
+            }
+        };
+
+        function generateSVGChart(dataArrays, labels, colors, minVal, maxVal, title = "") {
+            let svg = `<svg viewBox="0 0 240 120" width="100%" height="100%" style="background:#0b0f19; overflow:visible; border-radius:6px; padding:6px;">`;
+            const margin = { top: 18, right: 10, bottom: 18, left: 24 };
+            
+            if(title) {
+                svg += `<text x="120" y="10" text-anchor="middle" fill="rgba(255,255,255,0.7)" font-size="8" font-weight="600">${title}</text>`;
+            }
+
+            let grid = '';
+            const steps = 3;
+            for (let i = 0; i <= steps; i++) {
+                const y = margin.top + i * (120 - margin.top - margin.bottom) / steps;
+                grid += `<line x1="${margin.left}" y1="${y}" x2="${240 - margin.right}" y2="${y}" stroke="rgba(255,255,255,0.05)" stroke-width="0.5" />`;
+            }
+            svg += grid;
+
+            svg += `<text x="${margin.left - 4}" y="${margin.top + 2}" text-anchor="end" fill="rgba(255,255,255,0.4)" font-size="7">${maxVal}</text>`;
+            svg += `<text x="${margin.left - 4}" y="${120 - margin.bottom + 2}" text-anchor="end" fill="rgba(255,255,255,0.4)" font-size="7">${minVal}</text>`;
+            
+            const stepX = (240 - margin.left - margin.right) / (labels.length - 1 || 1);
+            
+            dataArrays.forEach((dataPoints, lineIdx) => {
+                const color = colors[lineIdx % colors.length];
+                const points = dataPoints.map((val, idx) => {
+                    const normY = (val - minVal) / (maxVal - minVal || 1);
+                    return {
+                        x: margin.left + idx * stepX,
+                        y: 120 - margin.bottom - normY * (120 - margin.top - margin.bottom)
+                    };
+                });
+                
+                let d = `M ${points[0].x} ${points[0].y}`;
+                for (let i = 1; i < points.length; i++) d += ` L ${points[i].x} ${points[i].y}`;
+                svg += `<path d="${d}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round"/>`;
+                
+                points.forEach((pt) => {
+                    svg += `<circle cx="${pt.x}" cy="${pt.y}" r="1.5" fill="${color}"/>`;
+                });
+            });
+
+            if(labels.length > 0) {
+                svg += `<text x="${margin.left}" y="${120 - margin.bottom + 12}" text-anchor="start" fill="rgba(255,255,255,0.4)" font-size="7">${labels[0]}</text>`;
+                svg += `<text x="${240 - margin.right}" y="${120 - margin.bottom + 12}" text-anchor="end" fill="rgba(255,255,255,0.4)" font-size="7">${labels[labels.length-1]}</text>`;
+            }
+
+            svg += `</svg>`;
+            return svg;
+        }
+
+
+        function generateLongTimelineSVG(cache) {
+            const daysCombined = [...cache.past7DaysData, ...cache.future7DaysData];
+            const aqis = daysCombined.map(d => d.aqi);
+            const maxVal = Math.max(...aqis, 220);
+            
+            let svg = `<svg viewBox="0 0 500 220" width="100%" height="100%" style="background:#0b0f19; overflow:visible; padding:10px;">`;
+            const margin = { top: 30, right: 20, bottom: 30, left: 35 };
+            
+            svg += `<text x="250" y="16" text-anchor="middle" fill="#ffffff" font-size="10" font-weight="600" letter-spacing="0.5">CHRONOLOGICAL ANALYTICS & TIMELINE PROJECTIONS</text>`;
+            
+            for (let i = 0; i <= 4; i++) {
+                const y = margin.top + i * (220 - margin.top - margin.bottom) / 4;
+                svg += `<line x1="${margin.left}" y1="${y}" x2="${500 - margin.right}" y2="${y}" stroke="rgba(255,255,255,0.06)" stroke-width="0.75" />`;
+            }
+
+            svg += `<text x="${margin.left - 6}" y="${margin.top + 3}" text-anchor="end" fill="rgba(255,255,255,0.4)" font-size="8">${maxVal}</text>`;
+            svg += `<text x="${margin.left - 6}" y="${220 - margin.bottom + 3}" text-anchor="end" fill="rgba(255,255,255,0.4)" font-size="8">0</text>`;
+
+            const stepX = (500 - margin.left - margin.right) / (daysCombined.length - 1);
+            const points = aqis.map((val, idx) => {
+                const normY = val / maxVal;
+                return {
+                    x: margin.left + idx * stepX,
+                    y: 220 - margin.bottom - normY * (220 - margin.top - margin.bottom)
+                };
+            });
+
+            let dPast = `M ${points[0].x} ${points[0].y}`;
+            for (let i = 1; i < 7; i++) dPast += ` L ${points[i].x} ${points[i].y}`;
+            svg += `<path d="${dPast}" fill="none" stroke="#a855f7" stroke-width="2.5" stroke-linecap="round"/>`;
+
+            let dFuture = `M ${points[6].x} ${points[6].y}`;
+            for (let i = 7; i < points.length; i++) dFuture += ` L ${points[i].x} ${points[i].y}`;
+            svg += `<path d="${dFuture}" fill="none" stroke="#06b6d4" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="4,3"/>`;
+
+            points.forEach((pt, idx) => {
+                const col = idx < 7 ? "#a855f7" : "#06b6d4";
+                svg += `<circle cx="${pt.x}" cy="${pt.y}" r="3.5" fill="${col}" stroke="#0b0f19" stroke-width="1.5"/>`;
+                svg += `<text x="${pt.x}" y="${pt.y - 8}" text-anchor="middle" fill="#ffffff" font-size="8" font-weight="600">${aqis[idx]}</text>`;
+                
+                svg += `<text x="${pt.x}" y="${220 - margin.bottom + 14}" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="7" transform="rotate(15, ${pt.x}, ${220 - margin.bottom + 14})">${daysCombined[idx].date}</text>`;
+            });
+
+            const splitX = points[6].x;
+            svg += `<line x1="${splitX}" y1="${margin.top}" x2="${splitX}" y2="${220 - margin.bottom}" stroke="rgba(255,255,255,0.2)" stroke-dasharray="2,2"/>`;
+
+            svg += `</svg>`;
+            return svg;
+        }
+
+     
+        function renderAllDashboardsAndCharts() {
+            const locCoords = storedLocationsMap.get(selectedLocationName);
+            const cache = activeMaps.get(selectedLocationName)?.telemetry;
+            if (!cache || !activeSectionId) return;
+
+            const labels = cache.past7DaysData.map(d => d.date);
+
+            if (activeSectionId === 'metrology') {
+                const pastTemps = cache.past7DaysData.map(d => d.temp);
+                const baseHums = [cache.humVal, ...cache.past7DaysData.map(d => Math.max(10, d.temp * 2.1))].slice(0,7);
+                const basePress = [cache.pressVal, ...cache.past7DaysData.map(d => Math.floor(d.aqi + 900))].slice(0,7);
+                const baseWinds = [parseFloat(cache.windVal), ...cache.past7DaysData.map(d => parseFloat((d.temp/2).toFixed(1)))].slice(0,7);
+
+                document.getElementById('graph-container-metrology').innerHTML = `
+                    ${generateSVGChart([pastTemps], labels, ['#3b82f6'], 0, 40, "Temperature (°C)")}
+                    ${generateSVGChart([baseHums], labels, ['#06b6d4'], 0, 100, "Humidity (%)")}
+                    ${generateSVGChart([basePress], labels, ['#a855f7'], 950, 1050, "Atmospheric Pressure (hPa)")}
+                    ${generateSVGChart([baseWinds], labels, ['#eab308'], 0, 25, "Wind Velocity (km/h)")}
+                `;
+
+                document.getElementById('content-container-metrology').innerHTML = `
+                    <div class="bullet-title">Core System Target</div>
+                    <div class="content-block-desc">
+                        <strong>Active Station:</strong> ${selectedLocationName}<br>
+                        <strong>Coordinates:</strong> ${locCoords ? locCoords.lat.toFixed(4) : 0}° N, ${locCoords ? locCoords.lon.toFixed(4) : 0}° E
+                    </div>
+                    <div class="bullet-title">Weather Dynamics</div>
+                    <div class="content-grid-cards">
+                        <div class="content-mini-card"><div class="mini-card-label">Temperature</div><div class="mini-card-value">${cache.tempVal} °C (${cache.currentCondition})</div></div>
+                        <div class="content-mini-card"><div class="mini-card-label">Humidity</div><div class="mini-card-value">${cache.humVal} %</div></div>
+                        <div class="content-mini-card"><div class="mini-card-label">Barometric Pressure</div><div class="mini-card-value">${cache.pressVal} hPa</div></div>
+                        <div class="content-mini-card"><div class="mini-card-label">Wind Velocity</div><div class="mini-card-value">${cache.windVal} km/h</div></div>
+                    </div>
+                `;
+            }
+
+            if (activeSectionId === 'speciation') {
+                const valPM25 = parseFloat(cache.pm25), valPM10 = parseFloat(cache.pm10);
+                const pm25Arr = cache.past7DaysData.map((d, i) => Math.max(5, valPM25 + (i * 2 - 6)));
+                const pm10Arr = cache.past7DaysData.map((d, i) => Math.max(10, valPM10 + (i * 3 - 9)));
+                const no2Arr = cache.past7DaysData.map((d, i) => Math.max(1, parseFloat(cache.no2) + (i - 3)));
+                const nh3Arr = cache.past7DaysData.map((d, i) => Math.max(1, parseFloat(cache.nh3) + (i * 0.5 - 1.5)));
+                const so2Arr = cache.past7DaysData.map((d, i) => Math.max(1, parseFloat(cache.so2) + (i * 0.8 - 2.4)));
+                const coArr = cache.past7DaysData.map((d, i) => Math.max(0.1, parseFloat(cache.co) + (i * 0.05 - 0.15)));
+
+                document.getElementById('graph-container-speciation').innerHTML = `
+                    ${generateSVGChart([coArr], labels, ['#3b82f6'], 0, 5, "co")}
+                    ${generateSVGChart([nh3Arr], labels, ['#3b82f6'], 0, 25, "nh3")}
+                    ${generateSVGChart([no2Arr], labels, ['#ef4444'], 0, 50, "no2")}
+                    ${generateSVGChart([pm10Arr], labels, ['#06b6d4'], 0, 150, "pm10")}
+                    <div style="grid-column: span 2; display: flex; gap: 10px;">
+                        <div style="flex: 1; height: 110px;">${generateSVGChart([pm25Arr], labels, ['#eab308'], 0, 100, "pm2_5")}</div>
+                        <div style="flex: 1; height: 110px;">${generateSVGChart([so2Arr], labels, ['#f97316'], 0, 25, "so2")}</div>
+                    </div>
+                `;
+
+                document.getElementById('content-container-speciation').innerHTML = `
+                    <div class="bullet-title">Evaluated Air Quality Index</div>
+                    <div class="aqi-large-display">AQI Index Value: ${cache.aqiVal}</div>
+                    <div class="bullet-title">Trace Gas Speciation Matrix</div>
+                    <div class="content-grid-cards">
+                        <div class="content-mini-card"><div class="mini-card-label">PM2.5</div><div class="mini-card-value">${cache.pm25} µg/m³</div></div>
+                        <div class="content-mini-card"><div class="mini-card-label">PM10</div><div class="mini-card-value">${cache.pm10} µg/m³</div></div>
+                        <div class="content-mini-card"><div class="mini-card-label">NO₂ Gas</div><div class="mini-card-value">${cache.no2} µg/m³</div></div>
+                        <div class="content-mini-card"><div class="mini-card-label">NH₃ Gas</div><div class="mini-card-value">${cache.nh3} µg/m³</div></div>
+                        <div class="content-mini-card"><div class="mini-card-label">SO₂ Gas</div><div class="mini-card-value">${cache.so2} µg/m³</div></div>
+                        <div class="content-mini-card"><div class="mini-card-label">CO Concentration</div><div class="mini-card-value">${cache.co} mg/m³</div></div>
+                    </div>
+                `;
+            }
+
+            if (activeSectionId === 'timeline') {
+                document.getElementById('graph-container-timeline').innerHTML = generateLongTimelineSVG(cache);
+
+                let observedHTML = '', projectedHTML = '';
+                
+                cache.past7DaysData.forEach(day => {
+                    observedHTML += `
+                        <div class="timeline-item-row">
+                            <div class="timeline-date-lbl">${day.date}</div>
+                            <div>${day.condition} | ${day.temp}°C</div>
+                            <div style="color:rgba(255,255,255,0.5);">AQI: <span style="color:#fff; font-weight:600;">${day.aqi}</span></div>
+                        </div>
+                    `;
+                });
+
+                cache.future7DaysData.forEach(day => {
+                    projectedHTML += `
+                        <div class="timeline-item-row">
+                            <div class="timeline-date-lbl">${day.date}</div>
+                            <div>${day.condition} | ${day.temp}°C</div>
+                            <div style="color:rgba(255,255,255,0.5);">AQI: <span style="color:#fff; font-weight:600;">${day.aqi}</span></div>
+                        </div>
+                    `;
+                });
+
+                document.getElementById('content-container-timeline').innerHTML = `
+                    <div class="timeline-split-pane">
+                        <div class="timeline-column">
+                            <div class="timeline-col-header" style="background:rgba(168,85,247,0.15); color:#c084fc;">◀ Observed Timeline</div>
+                            <div style="display:flex; flex-direction:column; gap:6px; margin-top: 4px;">
+                                ${observedHTML}
+                            </div>
+                        </div>
+                        <div class="timeline-column">
+                            <div class="timeline-col-header" style="background:rgba(6,182,212,0.15); color:#22d3ee;">🔮 Projected Matrix</div>
+                            <div style="display:flex; flex-direction:column; gap:6px; margin-top: 4px;">
+                                ${projectedHTML}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        toggleDataBtn.addEventListener('click', () => {
+            if (!isDashboardActive || document.getElementById('currentLocationName').textContent === "None") return;
+            areDataPanelsExpanded = !areDataPanelsExpanded;
+            renderDataPanelsState();
+        });
+
+        function renderDataPanelsState() {
+            const dataBox = document.getElementById('unified-data-box');
+            if (areDataPanelsExpanded) {
+                dataBox.style.display = 'flex';
+                toggleDataBtn.textContent = "Collapse State of Fields";
+                toggleDataBtn.classList.add('active-toggle');
+                
+                if (!activeSectionId) {
+                    switchDataSection('metrology');
+                } else {
+                    renderAllDashboardsAndCharts();
+                }
+            } else {
+                dataBox.style.display = 'none';
+                toggleDataBtn.textContent = "Expand Data Fields";
+                toggleDataBtn.classList.remove('active-toggle');
+            }
+        }
+
+        function generatePast7Days() {
+            const datasets = [];
+            const conditions = ["Clear", "Cloudy", "Rainy", "Haze"];
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                datasets.push({
+                    date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                    temp: parseFloat((Math.random() * (34 - 18) + 18).toFixed(1)),
+                    aqi: Math.floor(Math.random() * (190 - 45) + 45),
+                    condition: conditions[Math.floor(Math.random() * conditions.length)]
+                });
+            }
+            return datasets;
+        }
+
+        function generateNext7DaysForecast(historicalData) {
+            const forecast = [];
+            const conditions = ["Clear", "Cloudy", "Rainy", "Haze"];
+            const avgPastTemp = historicalData.reduce((sum, item) => sum + item.temp, 0) / historicalData.length;
+            const avgPastAqi = historicalData.reduce((sum, item) => sum + item.aqi, 0) / historicalData.length;
+
+            for (let i = 1; i <= 7; i++) {
+                const futureDate = new Date();
+                futureDate.setDate(futureDate.getDate() + i);
+                const predictedTemp = (avgPastTemp + (Math.random() * 4 - 2)).toFixed(1);
+                const predictedAqi = Math.max(10, Math.floor(avgPastAqi + (Math.random() * 30 - 15)));
+
+                forecast.push({
+                    date: futureDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                    temp: predictedTemp,
+                    aqi: predictedAqi,
+                    condition: conditions[Math.floor(Math.random() * conditions.length)]
+                });
+            }
+            return forecast;
+        }
+
+        function processAndDisplayNodeTelemetry(placeName, lat, lon) {
+            const cache = activeMaps.get(placeName)?.telemetry;
+            if (!cache) return;
+
+            if (selectedLocationName === placeName) {
+                showLocationToast("your data is already selected, if you want pls try another option to explore more");
+            } else {
+                selectedLocationName = placeName;
+                showLocationToast("now as per your selecting option wise, your data has been changed");
+            }
+
+            document.getElementById('currentLocationName').innerText = placeName;
+
+            if (activeSectionId) {
+                renderAllDashboardsAndCharts();
+            }
+
+            document.querySelectorAll('#mapPlacesList .place-item').forEach(tag => {
+                if (tag.querySelector('span').textContent === placeName) tag.classList.add('active-tag');
+                else tag.classList.remove('active-tag');
+            });
+
+            document.querySelectorAll('.individual-map-card').forEach(card => {
+                if (card.dataset.name === placeName) {
+                    card.classList.add('active-card');
+                    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                } else {
+                    card.classList.remove('active-card');
+                }
+            });
+        }
+
+        async function fetchSuggestions(query) {
+            if (!query || query.length < 2) {
+                suggestionsBox.style.display = 'none';
+                return;
+            }
+            try {
+                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=in&limit=5`;
+                const response = await fetch(url, { headers: { 'User-Agent': 'DigitalTwinCanvasApp/1.0' } });
+                const data = await response.json();
+
+                suggestionsBox.innerHTML = '';
+                if (data && data.length > 0) {
+                    data.forEach(item => {
+                        const parts = item.display_name.split(',');
+                        const textToShow = parts[1] ? `${parts[0]}, ${parts[1].trim()}` : parts[0];
+
+                        const div = document.createElement('div');
+                        div.className = 'suggestion-item';
+                        div.textContent = textToShow;
+                        div.addEventListener('click', () => selectLocation(textToShow, parseFloat(item.lat), parseFloat(item.lon)));
+                        suggestionsBox.appendChild(div);
+                    });
+                    suggestionsBox.style.display = 'block';
+                    searchHint.textContent = "";
+                } else {
+                    suggestionsBox.style.display = 'none';
+                    searchHint.textContent = "No grid parameters identified within tracking limits.";
+                }
+            } catch (error) {
+                searchHint.textContent = "Error fetching grid parameters.";
+            }
+        }
+
+        searchInput.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            const query = searchInput.value.trim();
+            debounceTimer = setTimeout(() => fetchSuggestions(query), 300);
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!searchInput.contains(e.target) && !suggestionsBox.contains(e.target)) suggestionsBox.style.display = 'none';
+        });
+
+        function selectLocation(name, lat, lon) {
+            if (storedLocationsMap.has(name)) {
+                searchHint.textContent = "Location already buffered.";
+                suggestionsBox.style.display = 'none';
+                searchInput.value = '';
+                return;
+            }
+            if (storedLocationsMap.size >= 6) {
+                searchHint.textContent = "Maximum limit of 6 stations reached.";
+                suggestionsBox.style.display = 'none';
+                return;
+            }
+            storedLocationsMap.set(name, { lat, lon });
+            renderPlacesTags();
+            suggestionsBox.style.display = 'none';
+            searchInput.value = '';
+            searchHint.textContent = "";
+        }
+
+        function renderPlacesTags() {
+            placesList.innerHTML = '';
+            storedLocationsMap.forEach((coords, name) => {
+                const tag = document.createElement('div');
+                tag.className = 'place-item';
+                tag.innerHTML = `<span>${name}</span><span class="place-item-close" onclick="removeLocation('${name.replace(/'/g, "\\'")}')">×</span>`;
+                placesList.appendChild(tag);
+            });
+        }
+
+        window.removeLocation = function(name) {
+            storedLocationsMap.delete(name);
+            renderPlacesTags();
+            if (isDashboardActive) syncMatrixFeeds();
+        };
+
+        submitBtn.addEventListener('click', syncMatrixFeeds);
+
+        function syncMatrixFeeds() {
+            if (storedLocationsMap.size === 0) {
+                searchHint.textContent = "Please buffer at least one telemetry station.";
+                return;
+            }
+            searchHint.textContent = "";
+            isDashboardActive = true;
+
+            activeMaps.forEach(item => { if (item.mapInstance) item.mapInstance.remove(); });
+            activeMaps.clear();
+            mapsGrid.innerHTML = '';
+            mapPlacesList.innerHTML = '';
+
+            mainWorkspaceSplit.style.display = 'flex';
+            renderDataPanelsState();
+
+            let firstPlaceName = null;
+            let firstCoords = null;
+
+            storedLocationsMap.forEach((coords, name) => {
+                if (!firstPlaceName) {
+                    firstPlaceName = name;
+                    firstCoords = coords;
+                }
+
+                const conditions = ["Clear", "Cloudy", "Rainy", "Haze"];
+                const currentCondition = conditions[Math.floor(Math.random() * conditions.length)];
+                const tempVal = (Math.random() * (34 - 18) + 18).toFixed(1);
+                const humVal = Math.floor(Math.random() * (85 - 40) + 40);
+                const pressVal = Math.floor(Math.random() * (1014 - 995) + 995);
+                const windVal = (Math.random() * (18 - 3) + 3).toFixed(1);
+                const aqiVal = Math.floor(Math.random() * (220 - 40) + 40);
+                
+                let severityColor = "#ef4444"; 
+
+                const pm25 = (aqiVal * 0.42).toFixed(1);
+                const pm10 = (aqiVal * 0.72).toFixed(1);
+                const no2 = (Math.random() * (38 - 4) + 4).toFixed(1);
+                const nh3 = (Math.random() * (14 - 1) + 1).toFixed(1);
+                const so2 = (Math.random() * (18 - 2) + 2).toFixed(1);
+                const co = (Math.random() * (1.8 - 0.1) + 0.1).toFixed(2);
+                
+                const past7DaysData = generatePast7Days();
+                const future7DaysData = generateNext7DaysForecast(past7DaysData);
+
+                const telemetryCache = {
+                    currentCondition, tempVal, humVal, pressVal, windVal,
+                    aqiVal, severityColor, pm25, pm10, no2, nh3, so2, co,
+                    past7DaysData, future7DaysData
+                };
+
+                const mapTag = document.createElement('div');
+                mapTag.className = 'place-item';
+                mapTag.innerHTML = `<span>${name}</span>`;
+                mapTag.addEventListener('click', () => processAndDisplayNodeTelemetry(name, coords.lat, coords.lon));
+                mapPlacesList.appendChild(mapTag);
+
+                const card = document.createElement('div');
+                card.className = 'individual-map-card';
+                card.dataset.name = name;
+                card.innerHTML = `
+                    <div class="map-card-header">
+                        <span>${name}</span>
+                        <span style="font-size:10px; color:rgba(255,255,255,0.4);">${coords.lat.toFixed(2)}°, ${coords.lon.toFixed(2)}°</span>
+                    </div>
+                    <div class="map-canvas-wrapper" id="map-canvas-${encodeURIComponent(name).replace(/%/g, '_')}"></div>
+                `;
+                
+                card.addEventListener('click', () => processAndDisplayNodeTelemetry(name, coords.lat, coords.lon));
+                mapsGrid.appendChild(card);
+
+                const mapId = `map-canvas-${encodeURIComponent(name).replace(/%/g, '_')}`;
+                try {
+                    const map = new maplibregl.Map({
+                        container: mapId,
+                        style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAP_API_KEY}`,
+                        center: [coords.lon, coords.lat],
+                        zoom: 14.5,
+                        pitch: 55, 
+                        bearing: -12
+                    });
+
+                    new maplibregl.Marker({ color: "#ef4444" }).setLngLat([coords.lon, coords.lat]).addTo(map);
+                    map.addControl(new maplibregl.NavigationControl({ showCompass: true, showZoom: true }), 'top-right');
+                    
+                    map.on('style.load', () => {
+                        if (map.getLayer('building')) {
+                            map.addLayer({
+                                'id': '3d-buildings-extrusion',
+                                'source': 'composite',
+                                'source-layer': 'building',
+                                'filter': ['==', 'extrude', 'true'],
+                                'type': 'fill-extrusion',
+                                'minzoom': 13,
+                                'paint': {
+                                    'fill-extrusion-color': '#e5e7eb',
+                                    'fill-extrusion-height': [
+                                        'interpolate', ['linear'], ['zoom'],
+                                        14, 0,
+                                        14.5, ['get', 'height']
+                                    ],
+                                    'fill-extrusion-base': [
+                                        'interpolate', ['linear'], ['zoom'],
+                                        14, 0,
+                                        14.5, ['get', 'min_height']
+                                    ],
+                                    'fill-extrusion-opacity': 0.85
+                                }
+                            });
+                        }
+                    });
+
+                    activeMaps.set(name, { mapInstance: map, cardElement: card, telemetry: telemetryCache });
+                } catch(e) {
+                    console.error(e);
+                }
+            });
+
+        
+            if (firstPlaceName) {
+                selectedLocationName = firstPlaceName;
+                document.getElementById('currentLocationName').innerText = firstPlaceName;
+                document.querySelectorAll('#mapPlacesList .place-item')[0]?.classList.add('active-tag');
+                document.querySelectorAll('.individual-map-card')[0]?.classList.add('active-card');
+                if (activeSectionId) renderAllDashboardsAndCharts();
+            }
+        }
+
+        clearBtn.addEventListener('click', () => {
+            storedLocationsMap.clear();
+            renderPlacesTags();
+            activeMaps.forEach(item => { if (item.mapInstance) item.mapInstance.remove(); });
+            activeMaps.clear();
+
+            mapsGrid.innerHTML = '';
+            mapPlacesList.innerHTML = '';
+            isDashboardActive = false;
+            areDataPanelsExpanded = false;
+            selectedLocationName = "None";
+            activeSectionId = null;
+            mainWorkspaceSplit.style.display = 'none';
+            
+            document.getElementById('currentLocationName').textContent = "None";
+            
+            document.querySelectorAll('.section-tab-btn').forEach(btn => btn.classList.remove('active-section-tab'));
+            document.querySelectorAll('.section-view-panel').forEach(panel => panel.classList.remove('active-panel-view'));
+
+            toggleDataBtn.textContent = "Expand Data Fields";
+            toggleDataBtn.classList.remove('active-toggle');
+            searchInput.value = '';
+            searchHint.textContent = '';
+        });
+    </script>
+</body>
+</html>
